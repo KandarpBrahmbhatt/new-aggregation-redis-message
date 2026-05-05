@@ -29,10 +29,4 @@ studentStandardSchema.index({
     standard: 1
 });
 
-//  For grouping by standard
-studentStandardSchema.index({ standard: 1 });
-
-// For lookup join
-studentStandardSchema.index({ studentId: 1 });
-
 export default mongoose.model("StudentStandard", studentStandardSchema);

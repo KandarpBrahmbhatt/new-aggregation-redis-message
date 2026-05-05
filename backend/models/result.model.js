@@ -1,57 +1,61 @@
-// // models/result.model.js
-// import mongoose from "mongoose";
-
-// const resultSchema = new mongoose.Schema({
-//     studentId: mongoose.Schema.Types.ObjectId,
-//     standard: Number,
-//     subject: String,a
-//     marks: Number
-// });
-
-// export default mongoose.model("Result", resultSchema);
-
-
-import mongoose from 'mongoose'
+// models/result.model.js
+import mongoose from "mongoose";
 
 const resultSchema = new mongoose.Schema({
-    studentId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Student",
-        index: true
-    },
-    // standard: {
-    //     type: mongoose.Schema.Types.ObjectId,
-    //     ref: "StudentStandard",
-    //       index: true
-    // },
+    studentId: mongoose.Schema.Types.ObjectId,
     standard: {
-        type: Number,
-        required: true
+        type:Number,
+        index:true,
     },
-    branchId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Branch",
-        index: true
-    },
-    // subject: {
-    //     type: String,
-    //       index: true
-    // },
-    // marks: {
-    //     type: Number
-    // }
+    subject: String,
+    marks: Number
+});
+
+resultSchema.index({studentId:1,subject:1,marks:1})
+export default mongoose.model("Result", resultSchema);
 
 
-    marks: {
-      maths: { type: Number, required: true },
-      science: { type: Number, required: true },
-      english: { type: Number, required: true },
-    },
-}, {
-    timestamps: true
-})
+// import mongoose from 'mongoose'
 
-resultSchema.index({ studentId: 1, branchId: 1 });
-const Result = mongoose.model("Result", resultSchema)
+// const resultSchema = new mongoose.Schema({
+//     studentId: {
+//         type: mongoose.Schema.Types.ObjectId,
+//         ref: "Student",
+//         index: true
+//     },
+//     // standard: {
+//     //     type: mongoose.Schema.Types.ObjectId,
+//     //     ref: "StudentStandard",
+//     //       index: true
+//     // },
+//     standard: {
+//         type: Number,
+//         required: true
+//     },
+//     branchId: {
+//         type: mongoose.Schema.Types.ObjectId,
+//         ref: "Branch",
+//         index: true
+//     },
+//     // subject: {
+//     //     type: String,
+//     //       index: true
+//     // },
+//     // marks: {
+//     //     type: Number
+//     // }
 
-export default Result
+
+//     marks: {
+//       maths: { type: Number, required: true },
+//       science: { type: Number, required: true },
+//       english: { type: Number, required: true },
+//     },
+// }, {
+//     timestamps: true
+// })
+
+// resultSchema.index({ studentId: 1, branchId: 1 });
+// const Result = mongoose.model("Result", resultSchema)
+
+// export default Result

@@ -11,6 +11,6 @@ const branchSchema = new mongoose.Schema({
 });
 
 
-branchSchema.index({ schoolId: 1 });
+branchSchema.index({ schoolId: 1,name:1 });
 
 export default mongoose.model("Branch", branchSchema);

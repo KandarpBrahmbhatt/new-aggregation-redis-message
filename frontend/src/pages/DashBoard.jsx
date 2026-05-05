@@ -25,7 +25,7 @@ const Dashboard = () => {
   const [classes, setclasses] = useState([])
   const [branchName, setbranchName] = useState("")
   const [standard, setStandard] = useState("")
-
+  const [marks,setmarks] = useState("")
   const [message,setmessage] = useState("")
   const loadData = async (value = "") => {
     try {
@@ -85,7 +85,6 @@ setmessage(branchRes.data.source )
             </p>
           {/* <h2>Data</h2> */}
 
-          {/*  DEFAULT VIEW */}
           {!searchValue && <SchoolSummary data={schools} />}
 
           {/*  SEARCH RESULT */}

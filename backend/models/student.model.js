@@ -2,7 +2,10 @@
 import mongoose from "mongoose";
 
 const studentSchema = new mongoose.Schema({
-    name: String,
+    name: {
+        type:String,
+        index:true,
+    },
     schoolId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "School",
@@ -15,11 +18,6 @@ const studentSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-//  INDEXES
-studentSchema.index({ schoolId: 1 });
-studentSchema.index({ branchId: 1 });
-
-// COMPOUND INDEX (very important)
 studentSchema.index({ schoolId: 1, branchId: 1 });
 
 export default mongoose.model("Student", studentSchema);

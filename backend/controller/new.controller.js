@@ -94,7 +94,7 @@ export const getSchoolListing = async (req, res) => {
             data,
             total
         }
-        await redis.set(cacheKey, JSON.stringify(results), "EX", 60)
+        await redis.set(cacheKey, JSON.stringify(results))
         return res.status(200).json({ message: "gettingSchoolisting is Successfully", ...results })
         // res.json(data);
     } catch (err) {
@@ -190,7 +190,7 @@ export const getBranchWiseData = async (req, res) => {
             data
         }
 
-        await redis.set(cacheKey, JSON.stringify(results), "EX", 60)
+        await redis.set(cacheKey, JSON.stringify(results))
 
         return res.status(200).json({ message: "getBranchWiseData successfully", source: "DataBase", ...results })
         // res.json({
@@ -208,233 +208,244 @@ export const getBranchWiseData = async (req, res) => {
     }
 };
 
+
 // export const getStudentsWithMarks = async (req, res) => {
-//     try {
-//         const { schoolName, branchName, standard } = req.query;
+//   try {
+//     const { schoolName, branchName, standard } = req.query;
 
-//         let page = parseInt(req.query.page) || 1;
-//         let limit = parseInt(req.query.limit) || 10;
+//     let page = parseInt(req.query.page) || 1;
+//     let limit = parseInt(req.query.limit) || 10;
 
-//         const skip = (page - 1) * limit;
-//         // redis
-//         const cacheKey = `getStudentWithMarks${branchName}:${schoolName}:${standard}`
-//         const cached = await redis.get(cacheKey)
-//         if (cached) {
-//             console.log("Cache Hit")
-//             return res.status(200).json({ message: "cached succedffuly", sousrce: "redis", ...JSON.parse(cached) })
+//     const skip = (page - 1) * limit;
+
+//     const pipeline = [
+//       // 1. LOOKUP STUDENT
+//       {
+//         $lookup: {
+//           from: "students",
+//           localField: "studentId",
+//           foreignField: "_id",
+//           as: "student"
 //         }
-//         console.log("Cached Miss")
-
-//         const data = await Result.aggregate([
-
-//             // student
-//             {
-//                 $lookup: {
-//                     from: "students",
-//                     localField: "studentId",
-//                     foreignField: "_id",
-//                     as: "student"
-//                 }
-//             },
-//             { $unwind: "$student" },
-
-//             // branch
-//             {
-//                 $lookup: {
-//                     from: "branches",
-//                     localField: "student.branchId",
-//                     foreignField: "_id",
-//                     as: "branch"
-//                 }
-//             },
-//             // { $unwind: "$branch" },
-
-//             // school
-//             {
-//                 $lookup: {
-//                     from: "schools",
-//                     localField: "student.schoolId",
-//                     foreignField: "_id",
-//                     as: "school"
-//                 }
-//             },
-//             { $unwind: "$school" },
-
-//             // filters
-//             {
-//                 $match: {
-//                     ...(schoolName && {
-//                         "school.name": { $regex: schoolName, $options: "i" }
-//                     }),
-//                     ...(branchName && {
-//                         "branch.name": { $regex: branchName, $options: "i" }
-//                     }),
-//                     ...(standard && { standard: Number(standard) })
-//                 }
-//             },
-
-//             // group by studentid
-//             {
-//                 $group: {
-//                     _id: "$studentId",
-//                     studentName: { $first: "$student.name" },
-//                     class: { $first: "$standard" },
-//                     branch: { $first: "$branch.name" },
-//                     school: { $first: "$school.name" },
-
-//                     subjects: {
-//                         $push: {
-//                             subject: "$subject",
-//                             marks: "$marks"
-//                         }
-//                     },
-
-//                     totalMarks: { $sum: "$marks" }
-//                 }
-//             },
-
-//             //  format mate use thay 6e.
-//             {
-//                 $project: {
-//                     _id: 0,
-//                     studentId: "$_id",
-//                     studentName: 1,
-//                     class: { $concat: ["Class ", { $toString: "$class" }] },
-//                     branch: 1,
-//                     school: 1,
-//                     subjects: 1,
-//                     totalMarks: 1
-//                 }
-//             },
-
-//             { $limit: 100 }
-
-//         ]);
-
-//         const total = await Result.countDocuments()
-//         const results = {
-//             total,
-//             data,
-//             page,
+//       },
+//       {
+//         $addFields: {
+//           student: { $arrayElemAt: ["$student", 0] }
 //         }
-//         await redis.set(cacheKey, JSON.stringify(results), "EX", 60)
+//       },
 
-//         return res.json({ message: "gettStudentwithMarks getting successfully", source: "database", ...results })
-//         // res.json({ success: true, count: data.length, data });
+//       // 2. LOOKUP BRANCH
+//       {
+//         $lookup: {
+//           from: "branches",
+//           localField: "branchId",
+//           foreignField: "_id",
+//           as: "branch"
+//         }
+//       },
+//       {
+//         $addFields: {
+//           branch: { $arrayElemAt: ["$branch", 0] }
+//         }
+//       },
 
-//     } catch (err) {
-//         res.status(500).json({ error: err.message });
-//     }
+//       // 3. LOOKUP SCHOOL
+//       {
+//         $lookup: {
+//           from: "schools",
+//           localField: "student.schoolId",
+//           foreignField: "_id",
+//           as: "school"
+//         }
+//       },
+//       {
+//         $addFields: {
+//           school: { $arrayElemAt: ["$school", 0] }
+//         }
+//       },
+
+//       // 4. FILTER
+//       {
+//         $match: {
+//           ...(schoolName && {
+//             "school.name": { $regex: schoolName, $options: "i" }
+//           }),
+//           ...(branchName && {
+//             "branch.name": { $regex: branchName, $options: "i" }
+//           }),
+//           ...(standard && {
+//             standard: Number(standard)
+//           })
+//         }
+//       },
+
+//       // 5. PROJECT
+//       {
+//         $project: {
+//           _id: 0,
+//           studentName: "$student.name",
+//           marks: 1,
+//           branch: "$branch.name",
+//           school: "$school.name",
+//           class: { $concat: ["Class ", { $toString: "$standard" }] }
+//         }
+//       },
+
+//       // 6. PAGINATION (IMPORTANT)
+//       {
+//         $skip: skip
+//       },
+//       {
+//         $limit: limit
+//       }
+//     ];
+
+//     const data = await Result.aggregate(pipeline);
+
+//     res.json({
+//       success: true,
+//       page,
+//       limit,
+//       // count: data.length,
+//       data
+//     });
+
+//   } catch (err) {
+//     console.log(err);
+//     res.status(500).json({
+//       success: false,
+//       message: "Error",
+//       error: err.message
+//     });
+//   }
 // };
 
 
+
 export const getStudentsWithMarks = async (req, res) => {
-  try {
-    const { schoolName, branchName, standard } = req.query;
+    try {
+        const { schoolName, branchName, standard } = req.query;
+        const page = parseInt(req.query.page) || 1
+        const limit = parseInt(req.query.limit) || 10
 
-    let page = parseInt(req.query.page) || 1;
-    let limit = parseInt(req.query.limit) || 10;
+         const skip = (page - 1) * limit;
+        const cacheKey = `getStudentsWithMarks:${schoolName}:${branchName}:${standard}`;
+        const catched = await redis.get(cacheKey)
 
-    const skip = (page - 1) * limit;
+        
+        if(catched){
+            console.log("catch HIT")
+            return res.status(200).json({source:"redis",...JSON.parse(catched)})
+        }
+        console.log("catch miss")
 
-    const pipeline = [
-      // 1. LOOKUP STUDENT
-      {
-        $lookup: {
-          from: "students",
-          localField: "studentId",
-          foreignField: "_id",
-          as: "student"
-        }
-      },
-      {
-        $addFields: {
-          student: { $arrayElemAt: ["$student", 0] }
-        }
-      },
+        const data = await Result.aggregate([
 
-      // 2. LOOKUP BRANCH
-      {
-        $lookup: {
-          from: "branches",
-          localField: "branchId",
-          foreignField: "_id",
-          as: "branch"
-        }
-      },
-      {
-        $addFields: {
-          branch: { $arrayElemAt: ["$branch", 0] }
-        }
-      },
+            // student
+            {
+                $lookup: {
+                    from: "students",
+                    localField: "studentId",
+                    foreignField: "_id",
+                    as: "student"
+                }
+            },
+            { $unwind: "$student" },
 
-      // 3. LOOKUP SCHOOL
-      {
-        $lookup: {
-          from: "schools",
-          localField: "student.schoolId",
-          foreignField: "_id",
-          as: "school"
-        }
-      },
-      {
-        $addFields: {
-          school: { $arrayElemAt: ["$school", 0] }
-        }
-      },
+            // branch
+            {
+                $lookup: {
+                    from: "branches",
+                    localField: "student.branchId",
+                    foreignField: "_id",
+                    as: "branch"
+                }
+            },
+            { $unwind: "$branch" },
 
-      // 4. FILTER
-      {
-        $match: {
-          ...(schoolName && {
-            "school.name": { $regex: schoolName, $options: "i" }
-          }),
-          ...(branchName && {
-            "branch.name": { $regex: branchName, $options: "i" }
-          }),
-          ...(standard && {
-            standard: Number(standard)
-          })
-        }
-      },
+            // school
+            {
+                $lookup: {
+                    from: "schools",
+                    localField: "student.schoolId",
+                    foreignField: "_id",
+                    as: "school"
+                }
+            },
+            { $unwind: "$school" },
 
-      // 5. PROJECT
-      {
-        $project: {
-          _id: 0,
-          studentName: "$student.name",
-          marks: 1,
-          branch: "$branch.name",
-          school: "$school.name",
-          class: { $concat: ["Class ", { $toString: "$standard" }] }
-        }
-      },
+            // filters
+            {
+                
+                $match: {
+                    ...(schoolName && {
+                        "school.name": { $regex: schoolName, $options: "i" }
+                    }),
+                    ...(branchName && {
+                        "branch.name": { $regex: branchName, $options: "i" }
+                    }),
+                    ...(standard && { standard: Number(standard) })
+                }
+            },
 
-      // 6. PAGINATION (IMPORTANT)
-      {
+            {
+                $group: {
+                    _id: "$studentId",
+                    studentName: { $first: "$student.name" },
+                    class: { $first: "$standard" },
+                    branch: { $first: "$branch.name" },
+                    school: { $first: "$school.name" },
+
+                    subjects: {
+                        $push: {
+                            subject: "$subject",
+                            marks: "$marks"
+                        }
+                    },
+
+                    totalMarks: { $sum: "$marks" }
+                }
+            },
+
+            {
+                $project: {
+                    _id: 0,
+                    studentId: "$_id",
+                    studentName: 1,
+                    class: { $concat: ["Class ", { $toString: "$class" }] },
+                    branch: 1,
+                    school: 1,
+                    subjects: 1,
+                    totalMarks: 1
+                }
+            },
+
+            {
         $skip: skip
       },
       {
         $limit: limit
-      }
-    ];
+      },
+            // { $limit: 100 }
 
-    const data = await Result.aggregate(pipeline);
+        ]);
 
-    res.json({
-      success: true,
-      page,
-      limit,
-      // count: data.length,
-      data
-    });
 
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({
-      success: false,
-      message: "Error",
-      error: err.message
-    });
-  }
+        const total = await Result.countDocuments();
+
+        const results = {
+            total,
+            data,
+            page,
+            limit,
+            skip,
+        }
+
+        await redis.set(cacheKey, JSON.stringify(results))
+
+        res.json({ success: true, count: data.length, source:"database",...results });
+
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 };

@@ -1,8 +1,9 @@
 import express from 'express'
-import { getAggregatedListing } from '../controller/aggregate.controller.js'
+import { branchWiseListing, getSchoolListing, markswiseListing } from '../controller/aggregate.controller.js'
 
 const aggregateRouter = express.Router()
 
-aggregateRouter.get("/listing", getAggregatedListing)
-
+aggregateRouter.get("/listing", getSchoolListing)
+aggregateRouter.get("/branchWiseListing",branchWiseListing)
+aggregateRouter.get("/markswiseListing",markswiseListing)
 export default aggregateRouter
