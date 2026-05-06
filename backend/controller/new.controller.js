@@ -5,6 +5,11 @@ import StudentStandard from "../models/studentStandard.model.js";
 import Result from "../models/result.model.js";
 import redis from "../config/redis.js";
 import schoolModel from "../models/school.model.js";
+import Student from "../models/student.model.js";
+
+// pdf gernate karava mae librery use kareli 6e.
+import PDFDocument from 'pdfkit';
+import fs from 'fs'
 
 export const getSchoolListing = async (req, res) => {
     try {
@@ -324,18 +329,18 @@ export const getBranchWiseData = async (req, res) => {
 
 export const getStudentsWithMarks = async (req, res) => {
     try {
-        const { schoolName, branchName, standard } = req.query;
+        const { schoolName, branchName, standard,studentName } = req.query;
         const page = parseInt(req.query.page) || 1
         const limit = parseInt(req.query.limit) || 10
 
-         const skip = (page - 1) * limit;
+        const skip = (page - 1) * limit;
         const cacheKey = `getStudentsWithMarks:${schoolName}:${branchName}:${standard}`;
         const catched = await redis.get(cacheKey)
 
-        
-        if(catched){
+
+        if (catched) {
             console.log("catch HIT")
-            return res.status(200).json({source:"redis",...JSON.parse(catched)})
+            return res.status(200).json({ source: "redis", ...JSON.parse(catched) })
         }
         console.log("catch miss")
 
@@ -376,7 +381,7 @@ export const getStudentsWithMarks = async (req, res) => {
 
             // filters
             {
-                
+
                 $match: {
                     ...(schoolName && {
                         "school.name": { $regex: schoolName, $options: "i" }
@@ -384,7 +389,12 @@ export const getStudentsWithMarks = async (req, res) => {
                     ...(branchName && {
                         "branch.name": { $regex: branchName, $options: "i" }
                     }),
-                    ...(standard && { standard: Number(standard) })
+                    ...(standard && { standard: Number(standard) }),
+
+                    // PDF MATE AND UPER STUDENT NAME PASS KAREL 6E QUERY MA
+                    ...(studentName &&{
+                         "student.name": { $regex: studentName, $options: "i" }
+                    })
                 }
             },
 
@@ -421,11 +431,11 @@ export const getStudentsWithMarks = async (req, res) => {
             },
 
             {
-        $skip: skip
-      },
-      {
-        $limit: limit
-      },
+                $skip: skip
+            },
+            {
+                $limit: limit
+            },
             // { $limit: 100 }
 
         ]);
@@ -443,9 +453,62 @@ export const getStudentsWithMarks = async (req, res) => {
 
         await redis.set(cacheKey, JSON.stringify(results))
 
-        res.json({ success: true, count: data.length, source:"database",...results });
+        res.json({ success: true, count: data.length, source: "database", ...results });
 
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+};
+
+
+// export const singleStudent = async (req, resp) => {
+//     try {
+//         const { id } = req.params;
+//         console.log(req.params)
+//         const student = await Student.findById(id)
+//         console.log(student)
+//         resp.status(200).json({ message: "getting singleStudent suceessfully", student })
+
+//     } catch (error) {
+//         console.log(error)
+//         resp.status(200).json({ message: "gettinf singleStudent Error", message: error.message })
+//     }
+// }
+
+
+export const downloadStudentPDF = async (req, res) => {
+    try {
+        const student = await Student.findById(req.params.id);
+        if (!student) return res.status(404).send("Student not found");
+        console.log(student)
+        //create document
+        const doc = new PDFDocument();
+        // console.log("doc",doc)
+        // Set filename in header
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=${student.studentName}.pdf`);
+        doc.pipe(res); // Stream PDF directly to response
+
+        // PDF Content
+        doc.fontSize(20).text('Student Report Card', { align: 'center' });
+        doc.moveDown();
+        doc.fontSize(14).text(`Name: ${student.name}`);
+        doc.fontSize(14).text(`Branch: ${student.branchId}`)
+        doc.text(`Class: ${student.schoolId}`);
+       
+        doc.moveDown();
+
+        doc.text("Subject Wise Marks:");
+        student.marks?.forEach(sub => {
+            doc.text(`${sub.subject}: ${sub.marks}`);
+        });
+
+        doc.moveDown();
+        doc.fontSize(16).text(`Total Marks: ${student.totalMarks}`, { bold: true });
+
+        doc.end();
+    } catch (error) {
+        console.log("error", error)
+        res.status(500).json({ message: "downloadStudenPDF error", error: error.message });
     }
 };

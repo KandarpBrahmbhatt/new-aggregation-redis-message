@@ -82,14 +82,14 @@
 // export default ClassPage;
 
 import { useEffect, useState } from "react";
-import { fetchClasses } from "../api/api";
+import { downloadStudentPDF, fetchClasses } from "../api/api";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Loader from "../components/Loadar";
 
 const ClassPage = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const[message,setmessage] = useState("")
+  const [message, setmessage] = useState("")
   const [params] = useSearchParams();
   const schoolName = params.get("schoolName");
   const branchName = params.get("branchName");
@@ -117,12 +117,35 @@ const ClassPage = () => {
     }
   }, [schoolName, branchName, standard]);
 
-  //  Get all unique subjects (important fix)
-  const allSubjects = [
-    ...new Set(
-      data.flatMap((s) => s.subjects?.map((sub) => sub.subject) || [])
-    ),
-  ];
+//  Get all unique subjects (important fix)
+const allSubjects = [
+  ...new Set(
+    data.flatMap((s) => s.subjects?.map((sub) => sub.subject) || [])
+  ),
+];
+
+const handleDownloadPDF = async (id, name) => {
+  try {
+    const response = await downloadStudentPDF(id);
+    console.log(response)
+    // Create a URL for the blob
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement("a");
+    link.href = url;
+
+    // Set the file name
+    link.setAttribute("download", `${name}_Report.pdf`);
+    document.body.appendChild(link);
+    link.click();
+
+    // Cleanup
+    link.parentNode.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    alert("Failed to download PDF");
+    console.error(err);
+  }
+};
 
   return (
     <div className="container">
@@ -137,12 +160,12 @@ const ClassPage = () => {
       ) : data.length === 0 ? (
         <p style={{ color: "red" }}>No students found</p>
       ) : (
-        
+
 
         <div className="table-wrapper">
-         <p style={{ textAlign: "center", color: "red" }}>
-              Data come from {message}
-            </p>
+          <p style={{ textAlign: "center", color: "red" }}>
+            Data come from {message}
+          </p>
           <table className="table">
             <thead>
               <tr>
@@ -151,7 +174,7 @@ const ClassPage = () => {
                 <th>Branch</th>
                 <th>Class</th>
 
-                {/* Dynamic Subjects */}
+                {/* Dynamic Subjects */}  
                 {allSubjects.map((subject, i) => (
                   <th key={i}>{subject}</th>
                 ))}
@@ -164,7 +187,16 @@ const ClassPage = () => {
               {data.map((student, index) => (
                 <tr key={index}>
                   <td>{index + 1}</td>
-                  <td>{student.studentName}</td>
+                  {/* <td onClick={()=>navigate("/student")}>{student.studentName}</td> */}
+                  {/* // inside your data.map loop */}
+                  <td
+                    className="clickable-name"
+                    onClick={() => handleDownloadPDF(student._id, student.studentName)}
+                    style={{ cursor: 'pointer', color: 'blue', textDecoration: 'underline' }}
+                  >
+                    {student.studentName}
+                  </td>
+
                   <td>{student.branch}</td>
                   <td>{student.class}</td>
 
