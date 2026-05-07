@@ -10,11 +10,11 @@ import Student from "../models/student.model.js";
 // pdf gernate karava mae librery use kareli 6e.
 import PDFDocument from 'pdfkit';
 import fs from 'fs'
+import { decryptData, encryptData } from "../utils/AES.js";
 
 export const getSchoolListing = async (req, res) => {
     try {
         const cacheKey = `getSchoolListing`
-
         const cached = await redis.get(cacheKey)
         if (cached) {
             console.log("Cache Hit")
@@ -52,7 +52,6 @@ export const getSchoolListing = async (req, res) => {
                 }
             },
 
-            // 4. GROUP BY SCHOOL + STANDARD
             {
                 $group: {
                     _id: {
@@ -65,7 +64,6 @@ export const getSchoolListing = async (req, res) => {
                 }
             },
 
-            // 5.group again by school
             {
                 $group: {
                     _id: {
@@ -82,7 +80,6 @@ export const getSchoolListing = async (req, res) => {
                 }
             },
 
-            // 6. formate
             {
                 $project: {
                     _id: 0,
@@ -94,16 +91,25 @@ export const getSchoolListing = async (req, res) => {
 
         ]);
 
+        const encrypted = encryptData(data)
+        const decrypted = decryptData(encrypted)
+
         const total = await schoolModel.countDocuments()
         const results = {
             data,
-            total
+            total,
+            encrypted,
+            decrypted
         }
-        await redis.set(cacheKey, JSON.stringify(results))
+        console.log(results)
+        await redis.set(cacheKey, JSON.stringify(results), "EX", "60")
+        // await redis.set(cacheKey, JSON.stringify(results)) 
         return res.status(200).json({ message: "gettingSchoolisting is Successfully", ...results })
         // res.json(data);
+
     } catch (err) {
         console.error(err);
+        // return res.status(500).json({message:"gettingSchoolisting error",error:err.message})
         res.status(500).json({ error: err.message });
     }
 };
@@ -188,11 +194,15 @@ export const getBranchWiseData = async (req, res) => {
             }
         ]);
 
+        const encrypted = encryptData(data)
+
+        await Crypto.create({ encrypted }) // store encrypted data in mongodb 
         const total = await Branch.countDocuments();
 
         const results = {
             total,
-            data
+            data,
+            encrypted
         }
 
         await redis.set(cacheKey, JSON.stringify(results))
@@ -214,122 +224,9 @@ export const getBranchWiseData = async (req, res) => {
 };
 
 
-// export const getStudentsWithMarks = async (req, res) => {
-//   try {
-//     const { schoolName, branchName, standard } = req.query;
-
-//     let page = parseInt(req.query.page) || 1;
-//     let limit = parseInt(req.query.limit) || 10;
-
-//     const skip = (page - 1) * limit;
-
-//     const pipeline = [
-//       // 1. LOOKUP STUDENT
-//       {
-//         $lookup: {
-//           from: "students",
-//           localField: "studentId",
-//           foreignField: "_id",
-//           as: "student"
-//         }
-//       },
-//       {
-//         $addFields: {
-//           student: { $arrayElemAt: ["$student", 0] }
-//         }
-//       },
-
-//       // 2. LOOKUP BRANCH
-//       {
-//         $lookup: {
-//           from: "branches",
-//           localField: "branchId",
-//           foreignField: "_id",
-//           as: "branch"
-//         }
-//       },
-//       {
-//         $addFields: {
-//           branch: { $arrayElemAt: ["$branch", 0] }
-//         }
-//       },
-
-//       // 3. LOOKUP SCHOOL
-//       {
-//         $lookup: {
-//           from: "schools",
-//           localField: "student.schoolId",
-//           foreignField: "_id",
-//           as: "school"
-//         }
-//       },
-//       {
-//         $addFields: {
-//           school: { $arrayElemAt: ["$school", 0] }
-//         }
-//       },
-
-//       // 4. FILTER
-//       {
-//         $match: {
-//           ...(schoolName && {
-//             "school.name": { $regex: schoolName, $options: "i" }
-//           }),
-//           ...(branchName && {
-//             "branch.name": { $regex: branchName, $options: "i" }
-//           }),
-//           ...(standard && {
-//             standard: Number(standard)
-//           })
-//         }
-//       },
-
-//       // 5. PROJECT
-//       {
-//         $project: {
-//           _id: 0,
-//           studentName: "$student.name",
-//           marks: 1,
-//           branch: "$branch.name",
-//           school: "$school.name",
-//           class: { $concat: ["Class ", { $toString: "$standard" }] }
-//         }
-//       },
-
-//       // 6. PAGINATION (IMPORTANT)
-//       {
-//         $skip: skip
-//       },
-//       {
-//         $limit: limit
-//       }
-//     ];
-
-//     const data = await Result.aggregate(pipeline);
-
-//     res.json({
-//       success: true,
-//       page,
-//       limit,
-//       // count: data.length,
-//       data
-//     });
-
-//   } catch (err) {
-//     console.log(err);
-//     res.status(500).json({
-//       success: false,
-//       message: "Error",
-//       error: err.message
-//     });
-//   }
-// };
-
-
-
 export const getStudentsWithMarks = async (req, res) => {
     try {
-        const { schoolName, branchName, standard,studentName } = req.query;
+        const { schoolName, branchName, standard, studentName } = req.query;
         const page = parseInt(req.query.page) || 1
         const limit = parseInt(req.query.limit) || 10
 
@@ -392,8 +289,8 @@ export const getStudentsWithMarks = async (req, res) => {
                     ...(standard && { standard: Number(standard) }),
 
                     // PDF MATE AND UPER STUDENT NAME PASS KAREL 6E QUERY MA
-                    ...(studentName &&{
-                         "student.name": { $regex: studentName, $options: "i" }
+                    ...(studentName && {
+                        "student.name": { $regex: studentName, $options: "i" }
                     })
                 }
             },
@@ -440,10 +337,23 @@ export const getStudentsWithMarks = async (req, res) => {
 
         ]);
 
+        // const encryptedData = Result.map((user)=>(
+        //     ...user,
+        //     schoolName:user.schoolName          ,
+        //     standard:user.standard,
+        // ))
+
+        const encrypted = encryptData(data)
+        const decrypted = decryptData(encrypted)
+
+        console.log(`encrypted data : ${encrypted}`)
+        console.log(`decrepted data : ${decrypted}`)
 
         const total = await Result.countDocuments();
 
         const results = {
+            encrypted,
+            decrypted,
             total,
             data,
             page,
@@ -451,7 +361,7 @@ export const getStudentsWithMarks = async (req, res) => {
             skip,
         }
 
-        await redis.set(cacheKey, JSON.stringify(results))
+        await redis.set(cacheKey, JSON.stringify(results), "EX", 60)
 
         res.json({ success: true, count: data.length, source: "database", ...results });
 
@@ -475,36 +385,140 @@ export const getStudentsWithMarks = async (req, res) => {
 //     }
 // }
 
-
 export const downloadStudentPDF = async (req, res) => {
     try {
-        const student = await Student.findById(req.params.id);
-        if (!student) return res.status(404).send("Student not found");
-        console.log(student)
-        //create document
-        const doc = new PDFDocument();
-        // console.log("doc",doc)
-        // Set filename in header
+        const { id } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).send("Invalid student id");
+        }
+
+        const [studentReport] = await Result.aggregate([
+            {
+                $match: {
+                    studentId: new mongoose.Types.ObjectId(id)
+                }
+            },
+            {
+                $lookup: {
+                    from: "students",
+                    localField: "studentId",
+                    foreignField: "_id",
+                    as: "student"
+                }
+            },
+            { $unwind: "$student" },
+            {
+                $lookup: {
+                    from: "branches",
+                    localField: "student.branchId",
+                    foreignField: "_id",
+                    as: "branch"
+                }
+            },
+            { $unwind: "$branch" },
+            {
+                $lookup: {
+                    from: "schools",
+                    localField: "student.schoolId",
+                    foreignField: "_id",
+                    as: "school"
+                }
+            },
+            { $unwind: "$school" },
+            {
+                $group: {
+                    _id: "$studentId",
+                    studentName: { $first: "$student.name" },
+                    school: { $first: "$school.name" },
+                    branch: { $first: "$branch.name" },
+                    standard: { $first: "$standard" },
+                    subjects: {
+                        $push: {
+                            subject: "$subject",
+                            marks: "$marks"
+                        }
+                    },
+                    totalMarks: { $sum: "$marks" }
+                }
+            }
+        ]);
+
+        if (!studentReport) {
+            return res.status(404).send("Student result not found");
+        }
+
+        //pdf download pfg kit
+
+        const fileName = `${studentReport.studentName || "Student"}_Report.pdf`.replace(/[^\w.-]/g, "_");
+        const doc = new PDFDocument({ margin: 50 });
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename=${student.studentName}.pdf`);
-        doc.pipe(res); // Stream PDF directly to response
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        doc.pipe(res);
 
-        // PDF Content
-        doc.fontSize(20).text('Student Report Card', { align: 'center' });
-        doc.moveDown();
-        doc.fontSize(14).text(`Name: ${student.name}`);
-        doc.fontSize(14).text(`Branch: ${student.branchId}`)
-        doc.text(`Class: ${student.schoolId}`);
-       
+        doc
+            .fontSize(22)
+            .fillColor('#4cafef')
+            .text('Student Report Card', { align: 'center' });
+
+        doc
+            .moveDown(0.4)
+            .fontSize(10)
+            .fillColor('black')
+            .text(`Generated on: ${new Date().toLocaleDateString('en-IN')}`, { align: 'center' });
+
+        doc
+            .moveDown(1.5)
+            .fillColor('black')
+            .fontSize(14)
+            .text('Student Information');
+
+        doc.moveDown(0.7);
+        doc.fontSize(12);
+        doc.text(`Name: ${studentReport.studentName}`);
+        doc.text(`School: ${studentReport.school}`);
+        doc.text(`Branch: ${studentReport.branch}`);
+        doc.text(`Class: Class ${studentReport.standard}`);
+
+        doc
+            .moveDown(1.5)
+            .fontSize(14)
+            .text('Subject Wise Marks');
+
         doc.moveDown();
 
-        doc.text("Subject Wise Marks:");
-        student.marks?.forEach(sub => {
-            doc.text(`${sub.subject}: ${sub.marks}`);
+        const tableTop = doc.y;
+        const subjectX = 70;
+        const marksX = 400;
+        const rowHeight = 26;
+        let y = tableTop;
+
+        doc
+            .fontSize(12)
+            .rect(60, y - 6, 470, rowHeight)
+            .fillAndStroke('#4cafef', 'white')
+            .fillColor('black')
+            .text('Subject', subjectX, y)
+            .text('Marks', marksX, y);
+
+        y += rowHeight;
+
+        studentReport.subjects.forEach((sub) => {
+            doc
+                .font('Helvetica')
+                .rect(60, y - 6, 470, rowHeight)
+                .stroke('#dddddd')
+                .text(sub.subject, subjectX, y)
+                .text(String(sub.marks), marksX, y);
+
+            y += rowHeight;
         });
 
-        doc.moveDown();
-        doc.fontSize(16).text(`Total Marks: ${student.totalMarks}`, { bold: true });
+        doc
+            .rect(60, y - 6, 470, rowHeight)
+            .fillAndStroke('#f7f7f7', '#cccccc')
+            .fillColor('#000000')
+            .text('Total Marks', subjectX, y)
+            .text(String(studentReport.totalMarks), marksX, y);
 
         doc.end();
     } catch (error) {

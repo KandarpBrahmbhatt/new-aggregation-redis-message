@@ -12,7 +12,7 @@ const resultSchema = new mongoose.Schema({
 });
 
 resultSchema.index({studentId:1,subject:1,marks:1})
-export default mongoose.model("Result", resultSchema);
+export default mongoose.model("Result", resultSchema);  
 
 
 // import mongoose from 'mongoose'

@@ -131,11 +131,10 @@ const seedData = async () => {
     await connectDB();
     console.log("DB Connected");
 
-    //  Drop DB (important for Atlas + clean run)
     await mongoose.connection.dropDatabase();
     console.log("Database dropped");
 
-    //  1. CREATE SCHOOLS
+    //   create school
     const schools = await School.insertMany([
       { name: "New Noble School" },
       { name: "Panchtirth School" },
@@ -143,7 +142,7 @@ const seedData = async () => {
     ]);
     console.log("Schools inserted");
 
-    //  2. DIFFERENT BRANCHES PER SCHOOL
+    //differt branch per schools
    const branchConfig = {
   "New Noble School": ["Kathwada", "Naroda","ranip"],
   "Panchtirth School": ["Nikol", "Bopal","odhav"],
@@ -184,7 +183,7 @@ const seedData = async () => {
     for (let i = 0; i < TOTAL_STUDENTS; i += BATCH_SIZE) {
       const studentsBatch = [];
 
-      //  STEP 1: Prepare students
+      //  prepare students
       for (let j = 0; j < BATCH_SIZE && i + j < TOTAL_STUDENTS; j++) {
         const school =
           schools[Math.floor(Math.random() * schools.length)];
@@ -200,14 +199,14 @@ const seedData = async () => {
         });
       }
 
-      //  STEP 2: Insert students
+      // insert students
       const insertedStudents = await Student.insertMany(studentsBatch, {
         ordered: true // keep true for debugging
       });
 
       console.log(`Students inserted: ${insertedStudents.length}`);
 
-      //  STEP 3: Prepare standards + results
+      // prepare standard + results
       const standardsBatch = [];
       const resultsBatch = [];
 

@@ -16,7 +16,7 @@ const studentSchema = new mongoose.Schema({
         ref: "Branch",
         required: true
     }
-}, { timestamps: true });
+}, { timestamps: true });   
 
 studentSchema.index({ schoolId: 1, branchId: 1 });
 

@@ -24,13 +24,11 @@ export const fetchClasses = (schoolName, branchName, standard) => {
   );
 };
 
+//download pdf
 export const downloadStudentPDF = async (studentId) => {
-  return axios.get(`/singleStudent/${studentId}`, {
-    responseType: "blob", // Critical for binary data like PDFs
+  return API.get(`/singleStudent/${studentId}`, {
+    responseType: "blob", 
   });
 };
 
-// export const fetchStudents = ()=>{
-//   return API.get("/singleStudent/:id")
-// }
 export default API;

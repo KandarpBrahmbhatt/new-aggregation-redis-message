@@ -2,6 +2,7 @@ import School from "../models/school.model.js"
 import Branch from "../models/branch.model.js"
 import resultModel from "../models/result.model.js"
 import redis from "../config/redis.js";
+import mongoose from "mongoose";
 
 // export const getSchoolListing = async (req, resp) => {
 //   try {
@@ -90,7 +91,6 @@ import redis from "../config/redis.js";
 export const getSchoolListing = async (req, res) => {
     try {
         const cacheKey = `getSchoolListing`
-
         const cached = await redis.get(cacheKey)
         if (cached) {
             console.log("Cache Hit")
@@ -139,7 +139,7 @@ export const getSchoolListing = async (req, res) => {
                     branchCount: { $first: { $size: "$branches" } },
                     totalStudents: { $sum: 1 }
                 }
-            },
+            }, 
 
             // 5.group again by school
             {
@@ -169,20 +169,30 @@ export const getSchoolListing = async (req, res) => {
             }
 
         ]);
+        
+        const encrypted = encryptData(data)
+        const decrypted = decryptData(encrypted)
 
         const total = await schoolModel.countDocuments()
         const results = {
             data,
-            total
+            total,
+            encrypted,
+            decrypted
         }
-        await redis.set(cacheKey, JSON.stringify(results))
+        console.log(results)
+        await redis.set(cacheKey, JSON.stringify(results), "EX", "60")
+        // await redis.set(cacheKey, JSON.stringify(results)) 
         return res.status(200).json({ message: "gettingSchoolisting is Successfully", ...results })
         // res.json(data);
+        
     } catch (err) {
         console.error(err);
-        res.status(500).json({ error: err.message });
+        // return res.status(500).json({message:"gettingSchoolisting error",error:err.message})
+        res.status(500).json({ error: err.message }); 
     }
 };
+
 export const branchWiseListing = async (req, resp) => {
   try {
     const { schoolName } = req.query
@@ -282,7 +292,7 @@ export const markswiseListing = async (req, resp) => {
 
     if (branchName) {
       query.branchName = {
-        
+
       }
       console.log(branchName)
     }
@@ -347,5 +357,75 @@ export const markswiseListing = async (req, resp) => {
   } catch (error) {
     console.log(error)
     return resp.status(500).json({ message: "markswise filtering error", error })
+  }
+}
+
+
+export const downloadPdf = async (req, resp) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return resp.status(400).json({ message: "id not found" })
+    }
+
+    const studentReport = await Result.aggregate([
+      {                         
+        $match: {
+          studentId: new mongoose.Types.ObjectId(id)
+        }
+      },
+      {
+        $lookup: {
+          from: "students",
+          "localField": "studentId",
+          foreignField: "_id",
+          as: "student"
+        }
+      },                  
+      { $unwind: "$student" },
+      {
+        $lookup: {
+          from: "branches",
+          localField: "student.branchId",
+          foreignField: "_id",
+          as: "branch",
+        }
+      },
+      { $unwind: "$branch" },
+      {
+        $lookup: {
+          from: "schools",
+          localField: "student.studentId",
+          foreignField: "_id", 
+          as: "schools"  
+        }
+      },
+      { $unwind: "$schools" },
+      {
+        $group: {
+          _id: "$studentId",
+          studentName: { $first: "$student.name" },
+          school: { $first: "$school.name" },
+          branch: { $first: "$branch.name" },
+          standard: { $first: "$standard" },
+          subjects: {
+            $push: {
+              subject: "$subject",
+              marks: "$marks"
+            }
+          },                     
+          totalMarks:{$sum:"$marks"}
+        }
+      }
+    ]);
+
+    if (!studentReport) {
+      return resp.status(400).json({message:"studentReport not found"})
+    }
+
+    const filename= `${studentReport.studentName || "Student"}_Report.pdf`.replace()
+    console.log(filename)
+  } catch (error) {
+    console.log(error)
   }
 }

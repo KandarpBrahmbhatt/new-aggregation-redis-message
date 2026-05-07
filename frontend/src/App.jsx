@@ -5,6 +5,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import "./App.css";
 import ClassPage from "./pages/ClassPage";
 import { ToastContainer } from 'react-toastify';
+import Encryptdecrypt from "./pages/Encryptdecrypt";
 
 const App = () => {
   return (
@@ -16,6 +17,7 @@ const App = () => {
           <Route path="/branch" element={<BranchPage />} />
           <Route path="/class" element={<ClassPage />} />
           {/* <Route path="/student" element={<StudentPage/>}/> */}
+          <Route path="/encrypt" element={<Encryptdecrypt/>}/>
         </Routes>
       </Router>
     </>

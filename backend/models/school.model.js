@@ -5,7 +5,7 @@ const schoolSchema = new mongoose.Schema({
     name: {
         type: String,
         required: true
-    }
+    },
 });
 
 schoolSchema.index({ name: 1 });

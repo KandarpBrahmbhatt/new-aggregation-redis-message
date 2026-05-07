@@ -95,7 +95,6 @@ setmessage(branchRes.data.source )
             </>
           )}
           <ClassList data={classes} />
-          {/*  NOT FOUND */}
           {searchValue && branches.length === 0 && (
             <p style={{ textAlign: "center", color: "red" }}>
               No data found for "{searchValue}"
